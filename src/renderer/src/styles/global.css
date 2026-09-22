@@ -1,0 +1,60 @@
+:root {
+  /* SNES / Retro Color Tokens */
+  --ink-900: #1a1320;
+  --ink-700: #3d2e4a;
+  --ink-500: #6b5878;
+  --ink-300: #a899b5;
+  --ink-100: #d9cfe0;
+
+  --cream-50: #fffdf5;
+  --cream-100: #fff8e7;
+  --cream-200: #f4e9c7;
+  --cream-300: #e8d9a0;
+
+  --paper-100: #181825;
+  --paper-200: #1e1e2e;
+
+  /* Agent Accents */
+  --coral: #ff6b6b;
+  --mint: #6bcf7f;
+  --sky: #4ecdc4;
+  --lemon: #ffd93d;
+  --lilac: #b197fc;
+  --peach: #ffa07a;
+
+  /* Status Colors */
+  --status-idle: #a899b5;
+  --status-thinking: #4ecdc4;
+  --status-working: #ffd93d;
+  --status-blocked: #ff6b6b;
+  --status-success: #6bcf7f;
+
+  /* Typography */
+  --font-display: 'Press Start 2P', cursive;
+  --font-ui: 'Pixelify Sans', sans-serif;
+  --font-mono: 'VT323', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  background-color: var(--paper-100);
+  color: var(--cream-100);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
