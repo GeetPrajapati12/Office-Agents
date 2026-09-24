@@ -26,6 +26,7 @@ export interface Agent {
   currentTask?: string
   cwd: string
   command: string
+  cli?: string
   model?: string
   isGod: boolean
   pid?: number

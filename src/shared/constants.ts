@@ -50,6 +50,7 @@ export const IPC_CHANNELS = {
   // Agent
   AGENT_LIST: 'agent:list',
   AGENT_CREATE: 'agent:create',
+  AGENT_HIRE: 'agent:hire',
   AGENT_UPDATE: 'agent:update',
   AGENT_STATE_CHANGED: 'agent:state-changed',
 
@@ -61,10 +62,16 @@ export const IPC_CHANNELS = {
 
   // God
   GOD_CHAT: 'god:chat',
+  GOD_LOG: 'god:log',
   GOD_APPROVAL_PENDING: 'god:approval-pending',
   GOD_APPROVAL_RESPOND: 'god:approval-respond',
 
   // Settings
   SETTINGS_GET: 'settings:get',
-  SETTINGS_UPDATE: 'settings:update'
+  SETTINGS_UPDATE: 'settings:update',
+
+  // Window
+  WINDOW_MINIMIZE: 'window:minimize',
+  WINDOW_MAXIMIZE: 'window:maximize',
+  WINDOW_CLOSE: 'window:close'
 } as const

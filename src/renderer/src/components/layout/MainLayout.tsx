@@ -1,55 +1,59 @@
 import React, { useState, useEffect } from 'react'
 import { OfficeCanvas } from '../office/OfficeCanvas'
 import { XTermWrapper } from '../terminal/XTermWrapper'
+import { SettingsModal } from '../settings/SettingsModal'
+import { CommandCenter } from '../command-center/CommandCenter'
+import { AgentCard } from '../agent/AgentCard'
+import { HireWorkerDialog } from '../agents/HireWorkerDialog'
+import { Agent } from '@shared/types/agent'
 
 interface MainLayoutProps {
   children?: React.ReactNode
 }
 
+const MICHAEL_AGENT: Agent = {
+  id: 'michael',
+  name: 'Michael',
+  role: 'Orchestrator',
+  accentColor: '#b197fc',
+  sprite: 'michael',
+  state: 'idle',
+  cwd: '',
+  command: '',
+  isGod: true
+}
+
+type RightPanelMode = 'command' | 'ide'
+
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [activeAgent, setActiveAgent] = useState<string | null>('michael')
-  const [agents, setAgents] = useState<Array<{ id: string; name: string; state: string }>>([
-    { id: 'michael', name: 'Michael (God)', state: 'idle' }
-  ])
+  const [agents, setAgents] = useState<Agent[]>([MICHAEL_AGENT])
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hireOpen, setHireOpen] = useState(false)
+  const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>('command')
 
   useEffect(() => {
-    // Load agents from backend
+    let mounted = true
     window.api.agent.list().then((agentList) => {
-      if (agentList.length > 0) {
-        setAgents(agentList.map(a => ({
-          id: a.id,
-          name: a.name,
-          state: a.state || 'idle'
-        })))
-      }
+      if (!mounted) return
+      const workers = agentList.filter((a) => a.id !== 'michael')
+      setAgents([MICHAEL_AGENT, ...workers])
     })
+    const unsubscribe = window.api.agent.onStateChanged((updated) => {
+      setAgents((current) => current.map((agent) => agent.id === updated.id ? { ...agent, ...updated } : agent))
+    })
+    return () => { mounted = false; unsubscribe() }
   }, [])
 
-  const handleCreateAgent = () => {
-    const agentId = `agent-${Date.now()}`
-    const agentName = `Agent ${agents.length}`
-
-    // Create terminal session
-    window.api.terminal.create({
-      agentId,
-      command: 'powershell.exe',
-      args: ['-NoExit', '-Command', `Write-Host "🤖 ${agentName} Terminal Ready" -ForegroundColor Green; Write-Host "Type commands or 'exit' to close" -ForegroundColor Cyan`],
-      cwd: 'C:\\Geet\\Office AI Agents'
-    })
-
-    setAgents([...agents, { id: agentId, name: agentName, state: 'idle' }])
+  const focusAgent = (agentId: string) => {
     setActiveAgent(agentId)
+    setRightPanelMode(agentId === 'michael' ? 'command' : 'ide')
   }
 
-  const getStateColor = (state: string): string => {
-    const colors: Record<string, string> = {
-      idle: 'var(--status-idle)',
-      thinking: 'var(--status-thinking)',
-      working: 'var(--status-working)',
-      blocked: 'var(--status-blocked)',
-      success: 'var(--status-success)'
-    }
-    return colors[state] || 'var(--ink-500)'
+  const handleHired = (agent: Agent) => {
+    setAgents((current) => [...current.filter((item) => item.id !== agent.id), agent])
+    setActiveAgent(agent.id)
+    setRightPanelMode('ide')
   }
 
   return (
@@ -81,93 +85,81 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             padding: '4px'
           }}
         >
-          <OfficeCanvas onAvatarClick={(agentId) => setActiveAgent(agentId)} />
+          <OfficeCanvas onAvatarClick={(agentId) => {
+            setActiveAgent(agentId)
+            if (agentId !== 'michael') setRightPanelMode('ide')
+            else setRightPanelMode('command')
+          }} />
         </div>
 
-        {/* Right: Agent Detail Panel */}
+        {/* Right: Command Center / IDE panel */}
         <div
           style={{
-            width: '380px',
+            width: '420px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            margin: '8px 8px 8px 0'
+            margin: '8px 8px 8px 0',
+            minHeight: 0
           }}
         >
-          {/* Agent Info */}
-          <div className="snes-panel" style={{ padding: '12px' }}>
-            <div
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button
+              className="snes-button"
+              onClick={() => setRightPanelMode('command')}
               style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '10px',
-                color: 'var(--mint)',
-                marginBottom: '8px'
+                flex: 1,
+                fontSize: 11,
+                backgroundColor: rightPanelMode === 'command' ? 'var(--coral)' : 'var(--ink-700)'
               }}
             >
-              {activeAgent ? agents.find(a => a.id === activeAgent)?.name || activeAgent : 'No Agent'}
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--ink-300)' }}>
-              {activeAgent === 'michael'
-                ? '🎩 Orchestrator - Routes tasks to specialist agents'
-                : activeAgent
-                ? 'Live terminal - type commands below'
-                : 'Click an avatar on the floor or create a new agent'
-              }
-            </div>
+              ▶ auto
+            </button>
+            <button
+              className="snes-button"
+              onClick={() => setRightPanelMode('ide')}
+              style={{
+                flex: 1,
+                fontSize: 11,
+                backgroundColor: rightPanelMode === 'ide' ? 'var(--coral)' : 'var(--ink-700)'
+              }}
+            >
+              {'<>'} IDE
+            </button>
           </div>
 
-          {/* Terminal */}
-          <div
-            className="snes-panel-inset"
-            style={{
-              flex: 1,
-              overflow: 'hidden',
-              padding: '4px',
-              minHeight: 0
-            }}
-          >
-            {activeAgent && activeAgent !== 'michael' ? (
-              <XTermWrapper agentId={activeAgent} />
-            ) : activeAgent === 'michael' ? (
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <div style={{ display: rightPanelMode === 'command' ? 'block' : 'none', height: '100%' }}>
+              <CommandCenter agents={agents} onFocusAgent={focusAgent} />
+            </div>
+            <div style={{ display: rightPanelMode === 'ide' ? 'block' : 'none', height: '100%' }}>
               <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  padding: '20px',
-                  color: 'var(--cream-100)',
-                  fontFamily: 'var(--font-ui)',
-                  fontSize: '14px',
-                  textAlign: 'center'
-                }}
+                className="snes-panel-inset"
+                style={{ height: '100%', overflow: 'hidden', padding: '4px', minHeight: 0 }}
               >
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎩</div>
-                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Michael's Office</div>
-                <div style={{ fontSize: '12px', color: 'var(--ink-300)', marginBottom: '16px' }}>
-                  God Agent Orchestrator
-                </div>
-                <div style={{ fontSize: '12px', maxWidth: '300px' }}>
-                  Michael decomposes your tasks into sequential pipelines and routes work to specialist agents.
-                  Chat UI coming in Phase 5!
-                </div>
+                {activeAgent && activeAgent !== 'michael' ? (
+                  <XTermWrapper agentId={activeAgent} />
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      color: 'var(--ink-500)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 14,
+                      textAlign: 'center',
+                      padding: 20
+                    }}
+                  >
+                    Select a worker agent below to view its terminal.
+                    <br />
+                    Michael doesn't have a raw terminal — use "auto" for the Command Center.
+                  </div>
+                )}
               </div>
-            ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  color: 'var(--ink-500)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '14px'
-                }}
-              >
-                No terminal session active
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -176,7 +168,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <div
         className="snes-panel"
         style={{
-          height: '84px',
+          height: '96px',
           margin: '0 8px 8px 8px',
           display: 'flex',
           alignItems: 'center',
@@ -185,46 +177,38 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           overflowX: 'auto'
         }}
       >
-        <button
-          className="snes-button snes-button-primary"
-          onClick={handleCreateAgent}
-        >
-          + New Agent
+        <button className="snes-button snes-button-primary" onClick={() => setHireOpen(true)} style={{ flexShrink: 0 }}>
+          + Hire worker
         </button>
 
-        {agents.map(agent => (
-          <div
+        <button className="snes-button" onClick={() => setSettingsOpen(true)} style={{ flexShrink: 0 }}>
+          ⚙ Settings
+        </button>
+
+        {agents.map((agent) => (
+          <AgentCard
             key={agent.id}
-            onClick={() => setActiveAgent(agent.id)}
-            style={{
-              minWidth: '140px',
-              padding: '8px 12px',
-              cursor: 'pointer',
-              backgroundColor: activeAgent === agent.id ? 'var(--coral)' : 'var(--ink-700)',
-              border: '2px solid var(--ink-900)',
-              color: 'var(--cream-100)',
-              fontSize: '12px',
-              fontFamily: 'var(--font-ui)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px'
+            agent={agent}
+            active={activeAgent === agent.id}
+            onClick={() => {
+              setActiveAgent(agent.id)
+              if (agent.id !== 'michael') setRightPanelMode('ide')
+              else setRightPanelMode('command')
             }}
-          >
-            <div style={{ fontWeight: 'bold' }}>{agent.name}</div>
-            <div style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: getStateColor(agent.state)
-                }}
-              />
-              {agent.state}
-            </div>
-          </div>
+            onTalk={
+              agent.isGod
+                ? () => {
+                    setActiveAgent(agent.id)
+                    setRightPanelMode('command')
+                  }
+                : undefined
+            }
+          />
         ))}
       </div>
+
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <HireWorkerDialog isOpen={hireOpen} onClose={() => setHireOpen(false)} onHired={handleHired} />
     </div>
   )
 }

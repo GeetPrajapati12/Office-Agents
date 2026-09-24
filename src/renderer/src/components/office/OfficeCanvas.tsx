@@ -10,6 +10,7 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
   const engineRef = useRef<OfficeEngine | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [modelLabel, setModelLabel] = useState<string>('')
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
@@ -18,7 +19,6 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
     const width = container.clientWidth
     const height = container.clientHeight
 
-    // Calculate grid size based on container
     const gridCols = Math.max(16, Math.floor(width / 32))
     const gridRows = Math.max(12, Math.floor(height / 32))
 
@@ -27,18 +27,16 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
       height,
       gridCols,
       gridRows
-    })
+    }, onAvatarClick)
 
     engine.init().then(() => {
       engineRef.current = engine
       setIsInitialized(true)
 
-      // Spawn Michael (God agent) at his office
       engine.spawnAvatar('michael', 'Michael', 0xb197fc, 2 * 32 + 16, 2 * 32 + 16)
       engine.updateAvatarState('michael', 'idle')
     })
 
-    // Handle window resize
     const handleResize = () => {
       if (engineRef.current && containerRef.current) {
         const newWidth = containerRef.current.clientWidth
@@ -57,7 +55,6 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
     }
   }, [])
 
-  // Listen for agent state changes from IPC
   useEffect(() => {
     if (!isInitialized) return
 
@@ -65,7 +62,6 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
       if (engineRef.current && agent.state) {
         engineRef.current.updateAvatarState(agent.id, agent.state)
 
-        // Move to station based on state
         if (agent.state === 'working' && agent.currentStation) {
           engineRef.current.moveAvatarToStation(agent.id, agent.currentStation)
         }
@@ -74,6 +70,18 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
 
     return unsubscribe
   }, [isInitialized])
+
+  // NEW: real provider/model chip, mirrors the reference's bottom-left info chip
+  useEffect(() => {
+    window.api.settings.get().then((s) => {
+      const providerName = s.providers.anthropic?.apiKey
+        ? 'anthropic'
+        : s.providers.openai?.apiKey
+        ? 'openai'
+        : 'ollama'
+      setModelLabel(`${providerName} · ${s.godModel}`)
+    })
+  }, [])
 
   return (
     <div
@@ -106,6 +114,26 @@ export const OfficeCanvas: React.FC<OfficeCanvasProps> = ({ onAvatarClick }) => 
           }}
         >
           Loading office floor...
+        </div>
+      )}
+
+      {isInitialized && modelLabel && (
+        <div
+          className="snes-panel-inset"
+          style={{
+            position: 'absolute',
+            bottom: 8,
+            left: 8,
+            padding: '4px 10px',
+            fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--cream-200)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
+          <span style={{ color: 'var(--mint)' }}>●</span> {modelLabel}
         </div>
       )}
     </div>

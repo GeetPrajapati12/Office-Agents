@@ -6,35 +6,33 @@ import { HiveSubstrate } from './hive/substrate'
 import { PipelineManager } from './hive/pipeline'
 import { GodOrchestrator } from './god/orchestrator'
 import { setupIpcHandlers } from './ipc/handlers'
+import { SettingsStore, resolveProviderConfig } from './settings/settings-store'
 
 let mainWindow: BrowserWindow | null = null
 const ptyManager = new PtyManager()
 
-// Initialize Hive and God Agent
 const storageDir = app.getPath('userData')
 const hiveDb = new HiveDatabase(storageDir)
 const substrate = new HiveSubstrate(storageDir, hiveDb)
 const pipelineManager = new PipelineManager(substrate)
+const settingsStore = new SettingsStore(storageDir)
 
 let godOrchestrator: GodOrchestrator | null = null
 
 async function initializeHive() {
   await hiveDb.init()
 
-  // Initialize God Agent with default config (can be updated via settings)
+  const { provider, model } = resolveProviderConfig(settingsStore.get())
   godOrchestrator = new GodOrchestrator(
-    {
-      provider: { name: 'ollama', host: 'http://localhost:11434' },
-      model: 'llama3'
-    },
+    { provider, model },
     pipelineManager,
     substrate
   )
 
-  // Ensure Michael (God agent) has directories
   substrate.ensureAgentDirs('michael', 'Orchestrator')
 
   console.log('✅ Hive initialized at:', storageDir)
+  console.log('✅ God Agent provider:', provider.name, '| model:', model)
 }
 
 function createWindow(): void {
@@ -54,17 +52,14 @@ function createWindow(): void {
     backgroundColor: '#1a1921'
   })
 
-  // Set up IPC handlers with all managers
-  setupIpcHandlers(mainWindow, ptyManager, substrate, hiveDb, pipelineManager, godOrchestrator!)
+  setupIpcHandlers(mainWindow, ptyManager, substrate, hiveDb, pipelineManager, godOrchestrator!, settingsStore)
 
-  // Load the app
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Open DevTools in development
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools()
   }

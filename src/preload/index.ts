@@ -18,6 +18,7 @@ const api: IpcApi = {
   agent: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST),
     create: (config) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_CREATE, config),
+    hire: (config) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_HIRE, config),
     update: (id, updates) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_UPDATE, id, updates),
     onStateChanged: (callback) => {
       const handler = (_: any, agent: any) => callback(agent)
@@ -35,6 +36,11 @@ const api: IpcApi = {
 
   god: {
     chat: (message) => ipcRenderer.invoke(IPC_CHANNELS.GOD_CHAT, message),
+    onLog: (callback) => {
+      const handler = (_: any, entry: any) => callback(entry)
+      ipcRenderer.on(IPC_CHANNELS.GOD_LOG, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.GOD_LOG, handler)
+    },
     onApprovalPending: (callback) => {
       const handler = (_: any, approval: any) => callback(approval)
       ipcRenderer.on(IPC_CHANNELS.GOD_APPROVAL_PENDING, handler)
@@ -47,6 +53,12 @@ const api: IpcApi = {
   settings: {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
     update: (settings) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_UPDATE, settings)
+  },
+
+  window: {
+    minimize: () => ipcRenderer.send(IPC_CHANNELS.WINDOW_MINIMIZE),
+    maximize: () => ipcRenderer.send(IPC_CHANNELS.WINDOW_MAXIMIZE),
+    close: () => ipcRenderer.send(IPC_CHANNELS.WINDOW_CLOSE)
   }
 }
 

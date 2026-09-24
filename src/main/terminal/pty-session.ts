@@ -12,7 +12,8 @@ export class PtySession extends EventEmitter {
     private command: string,
     private args: string[],
     private cwd: string,
-    private env: Record<string, string>
+    private env: Record<string, string>,
+    private useShell = true
   ) {
     super()
   }
@@ -33,7 +34,7 @@ export class PtySession extends EventEmitter {
     this.process = spawn(this.command, this.args, {
       cwd: this.cwd,
       env: processEnv,
-      shell: true,
+      shell: this.useShell,
       windowsHide: false
     })
 

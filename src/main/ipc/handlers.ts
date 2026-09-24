@@ -4,8 +4,15 @@ import { HiveSubstrate } from '../hive/substrate'
 import { HiveDatabase } from '../db/sqlite'
 import { PipelineManager } from '../hive/pipeline'
 import { GodOrchestrator } from '../god/orchestrator'
+import { SettingsStore, resolveProviderConfig } from '../settings/settings-store'
 import { IPC_CHANNELS } from '@shared/constants'
 import { TerminalCreateOptions, TerminalDimensions } from '@shared/types/terminal'
+import { HireWorkerOptions } from '@shared/types/terminal'
+import { AppSettings } from '@shared/types/ipc'
+import { ActionLogEntry } from '@shared/types/god'
+import { randomUUID } from 'crypto'
+import { constants as fsConstants, existsSync, statSync, accessSync } from 'fs'
+import { extname, isAbsolute, resolve } from 'path'
 
 export function setupIpcHandlers(
   mainWindow: BrowserWindow,
@@ -13,7 +20,8 @@ export function setupIpcHandlers(
   substrate: HiveSubstrate,
   db: HiveDatabase,
   pipelineManager: PipelineManager,
-  godOrchestrator: GodOrchestrator
+  godOrchestrator: GodOrchestrator,
+  settingsStore: SettingsStore
 ): void {
   // Forward PTY data to renderer
   ptyManager.on('data', (data) => {
@@ -23,6 +31,11 @@ export function setupIpcHandlers(
   // Forward God Agent approval requests to renderer
   godOrchestrator.on('approval:pending', (approval) => {
     mainWindow.webContents.send(IPC_CHANNELS.GOD_APPROVAL_PENDING, approval)
+  })
+
+  // NEW: stream the orchestrator's narrated action log to the Command Center terminal tab
+  godOrchestrator.on('log', (entry: ActionLogEntry) => {
+    mainWindow.webContents.send(IPC_CHANNELS.GOD_LOG, entry)
   })
 
   // Forward pipeline events to renderer
@@ -43,7 +56,6 @@ export function setupIpcHandlers(
     try {
       ptyManager.createSession(options)
 
-      // Register agent in Hive
       substrate.ensureAgentDirs(options.agentId, 'Worker')
       db.upsertAgent({
         id: options.agentId,
@@ -94,6 +106,57 @@ export function setupIpcHandlers(
     return db.getAgents()
   })
 
+  ipcMain.handle(IPC_CHANNELS.AGENT_HIRE, async (_, options: HireWorkerOptions) => {
+    const name = typeof options?.name === 'string' ? options.name.trim() : ''
+    const role = typeof options?.role === 'string' ? options.role.trim() : ''
+    if (!name || name.length > 60) throw new Error('Worker name must be 1–60 characters.')
+    if (!role || role.length > 80) throw new Error('Worker role must be 1–80 characters.')
+
+    const workspaceInput = typeof options.workspace === 'string' ? options.workspace.trim() : ''
+    if (!workspaceInput || !isAbsolute(workspaceInput)) throw new Error('Workspace must be an absolute path.')
+    const workspace = resolve(workspaceInput)
+    if (!existsSync(workspace) || !statSync(workspace).isDirectory()) {
+      throw new Error('Workspace must be an existing directory.')
+    }
+
+    let command: string
+    let shell: boolean
+    let cli: string
+    switch (options.cli) {
+      case 'codex': command = 'codex'; shell = true; cli = 'OpenAI Codex'; break
+      case 'claude': command = 'claude'; shell = true; cli = 'Claude Code'; break
+      case 'gemini': command = 'gemini'; shell = true; cli = 'Gemini CLI'; break
+      case 'custom': {
+        const executable = typeof options.customExecutable === 'string' ? resolve(options.customExecutable.trim()) : ''
+        if (!executable || !existsSync(executable) || !statSync(executable).isFile()) {
+          throw new Error('Choose an existing executable file for the custom CLI.')
+        }
+        if (process.platform === 'win32') {
+          if (!['.exe', '.com'].includes(extname(executable).toLowerCase())) {
+            throw new Error('On Windows, custom CLIs must be .exe or .com files.')
+          }
+        } else {
+          try { accessSync(executable, fsConstants.X_OK) } catch { throw new Error('Custom file is not executable.') }
+        }
+        command = executable
+        shell = false
+        cli = 'Custom CLI'
+        break
+      }
+      default: throw new Error('Choose a supported CLI.')
+    }
+
+    const id = `worker-${randomUUID()}`
+    const agent = {
+      id, name, role, accentColor: '#4ecdc4', sprite: 'default', state: 'idle' as const,
+      cwd: workspace, command, cli, isGod: false
+    }
+    ptyManager.createSession({ agentId: id, command, args: [], cwd: workspace, shell })
+    substrate.ensureAgentDirs(id, role)
+    db.upsertAgent(agent)
+    return agent
+  })
+
   // Hive handlers
   ipcMain.handle(IPC_CHANNELS.HIVE_REGISTRY, async () => {
     const agents = db.getAgents()
@@ -141,26 +204,26 @@ export function setupIpcHandlers(
 
   // Settings handlers
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async () => {
-    return {
-      providers: {
-        ollama: { host: 'http://localhost:11434' }
-      },
-      godModel: 'llama3',
-      theme: 'dark'
+    return settingsStore.get()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_UPDATE, async (_, settings: Partial<AppSettings>) => {
+    try {
+      const updated = settingsStore.update(settings)
+      const { provider, model } = resolveProviderConfig(updated)
+      godOrchestrator.updateConfig(provider, model)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_UPDATE, async (_, settings) => {
-    // TODO: Persist settings and reinitialize God Agent
-    return { success: true }
-  })
-
   // Window controls
-  ipcMain.on('window:minimize', () => {
+  ipcMain.on(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
     mainWindow.minimize()
   })
 
-  ipcMain.on('window:maximize', () => {
+  ipcMain.on(IPC_CHANNELS.WINDOW_MAXIMIZE, () => {
     if (mainWindow.isMaximized()) {
       mainWindow.unmaximize()
     } else {
@@ -168,7 +231,7 @@ export function setupIpcHandlers(
     }
   })
 
-  ipcMain.on('window:close', () => {
+  ipcMain.on(IPC_CHANNELS.WINDOW_CLOSE, () => {
     mainWindow.close()
   })
 }

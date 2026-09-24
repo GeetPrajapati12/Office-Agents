@@ -15,6 +15,11 @@ export class LLMClient {
     private model: string
   ) {}
 
+  updateConfig(provider: LLMProvider, model: string): void {
+    this.provider = provider
+    this.model = model
+  }
+
   async chat(messages: LLMMessage[]): Promise<string> {
     const { provider, model } = this
 

@@ -17,7 +17,8 @@ export class PtyManager extends EventEmitter {
       options.command,
       options.args,
       options.cwd,
-      options.env || {}
+      options.env || {},
+      options.shell ?? true
     )
 
     // Set up throttled data forwarding

@@ -1,6 +1,7 @@
 import { Agent } from './agent'
-import { TerminalData, TerminalDimensions, TerminalCreateOptions } from './terminal'
+import { TerminalData, TerminalDimensions, TerminalCreateOptions, HireWorkerOptions } from './terminal'
 import { FipaMessage, HiveRegistry, TaskDefinition } from './hive'
+import { ActionLogEntry } from './god'
 
 export interface IpcApi {
   // Terminal
@@ -16,6 +17,7 @@ export interface IpcApi {
   agent: {
     list: () => Promise<Agent[]>
     create: (config: any) => Promise<Agent>
+    hire: (config: HireWorkerOptions) => Promise<Agent>
     update: (id: string, updates: Partial<Agent>) => Promise<void>
     onStateChanged: (callback: (agent: Agent) => void) => () => void
   }
@@ -31,6 +33,7 @@ export interface IpcApi {
   // God
   god: {
     chat: (message: string) => Promise<string>
+    onLog: (callback: (entry: ActionLogEntry) => void) => () => void
     onApprovalPending: (callback: (approval: ApprovalRequest) => void) => () => void
     respondToApproval: (requestId: string, approved: boolean) => Promise<void>
   }
@@ -39,6 +42,13 @@ export interface IpcApi {
   settings: {
     get: () => Promise<AppSettings>
     update: (settings: Partial<AppSettings>) => Promise<void>
+  }
+
+  // Window
+  window: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
   }
 }
 

@@ -4,16 +4,15 @@ import { MainLayout } from './components/layout/MainLayout'
 
 function App() {
   const handleMinimize = () => {
-    // TODO: Wire up IPC for window controls
-    console.log('Minimize')
+    window.api.window.minimize()
   }
 
   const handleMaximize = () => {
-    console.log('Maximize')
+    window.api.window.maximize()
   }
 
   const handleClose = () => {
-    console.log('Close')
+    window.api.window.close()
   }
 
   return (

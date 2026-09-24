@@ -14,4 +14,15 @@ export interface TerminalCreateOptions {
   args: string[]
   cwd: string
   env?: Record<string, string>
+  shell?: boolean
+}
+
+export type WorkerCli = 'codex' | 'claude' | 'gemini' | 'custom'
+
+export interface HireWorkerOptions {
+  name: string
+  role: string
+  workspace: string
+  cli: WorkerCli
+  customExecutable?: string
 }
