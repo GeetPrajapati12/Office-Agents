@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import { Agent } from '@shared/types/agent'
 
 interface AgentCardProps {
@@ -6,6 +6,7 @@ interface AgentCardProps {
   active: boolean
   onClick: () => void
   onTalk?: () => void
+  onDelete?: () => void
 }
 
 const STATE_COLORS: Record<string, string> = {
@@ -18,7 +19,7 @@ const STATE_COLORS: Record<string, string> = {
   ghost: 'var(--ink-500)'
 }
 
-export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, onTalk }) => {
+export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, onTalk, onDelete }) => {
   const initial = agent.name.trim().charAt(0).toUpperCase() || '?'
   const stateColor = STATE_COLORS[agent.state] || 'var(--ink-500)'
 
@@ -35,7 +36,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, on
         gap: 6,
         backgroundColor: active ? 'var(--ink-700)' : 'var(--paper-100)',
         border: active ? '2px solid var(--coral)' : '2px solid var(--ink-900)',
-        flexShrink: 0
+        flexShrink: 0,
+        position: 'relative'
       }}
     >
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -58,7 +60,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, on
         </div>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
             <div
               style={{
                 fontSize: 12,
@@ -67,12 +69,12 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, on
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                maxWidth: 90
+                maxWidth: 80
               }}
             >
               {agent.name}
             </div>
-            {agent.isGod && (
+            {agent.isGod ? (
               <span
                 style={{
                   fontSize: 9,
@@ -85,6 +87,28 @@ export const AgentCard: React.FC<AgentCardProps> = ({ agent, active, onClick, on
               >
                 GOD
               </span>
+            ) : (
+              onDelete && (
+                <button
+                  className="snes-button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  title={`Delete worker ${agent.name}`}
+                  style={{
+                    padding: '0 4px',
+                    fontSize: 10,
+                    lineHeight: '14px',
+                    backgroundColor: 'transparent',
+                    color: 'var(--coral)',
+                    borderColor: 'var(--coral)',
+                    boxShadow: 'none'
+                  }}
+                >
+                  ✖
+                </button>
+              )
             )}
           </div>
           <div

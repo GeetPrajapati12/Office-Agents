@@ -1,4 +1,4 @@
-import initSqlJs, { Database } from 'sql.js'
+﻿import initSqlJs, { Database } from 'sql.js'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 
@@ -107,6 +107,31 @@ export class HiveDatabase {
     this.save()
   }
 
+  deleteAgent(id: string): void {
+    if (!this.db) return
+    this.db.run(`DELETE FROM memories WHERE agent_id = ?`, [id])
+    this.db.run(`DELETE FROM agents WHERE id = ? AND is_god = 0`, [id])
+    this.save()
+  }
+
+  deleteAllWorkers(): string[] {
+    if (!this.db) return []
+    const stmt = this.db.prepare(`SELECT id FROM agents WHERE is_god = 0`)
+    const ids: string[] = []
+    while (stmt.step()) {
+      const row = stmt.getAsObject()
+      ids.push(row.id as string)
+    }
+    stmt.free()
+
+    for (const id of ids) {
+      this.db.run(`DELETE FROM memories WHERE agent_id = ?`, [id])
+    }
+    this.db.run(`DELETE FROM agents WHERE is_god = 0`)
+    this.save()
+    return ids
+  }
+
   getAgents(): any[] {
     if (!this.db) return []
     const stmt = this.db.prepare('SELECT * FROM agents')
@@ -130,7 +155,7 @@ export class HiveDatabase {
     return results
   }
 
-  // Memory Search (Simple text search matching FTS behavior)
+  // Memory Search
   searchMemories(query: string, agentId?: string): any[] {
     if (!this.db) return []
     let sql = `SELECT * FROM memories WHERE (title LIKE ? OR content LIKE ? OR tags LIKE ?)`

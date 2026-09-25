@@ -1,7 +1,8 @@
-interface LLMProvider {
+﻿interface LLMProvider {
   name: string
   apiKey?: string
   host?: string
+  baseUrl?: string
 }
 
 interface LLMMessage {
@@ -21,9 +22,11 @@ export class LLMClient {
   }
 
   async chat(messages: LLMMessage[]): Promise<string> {
-    const { provider, model } = this
+    const { provider } = this
 
-    if (provider.name === 'anthropic') {
+    if (provider.name === 'omniroute') {
+      return this.callOmniRoute(messages)
+    } else if (provider.name === 'anthropic') {
       return this.callAnthropic(messages)
     } else if (provider.name === 'openai') {
       return this.callOpenAI(messages)
@@ -31,6 +34,40 @@ export class LLMClient {
       return this.callOllama(messages)
     } else {
       throw new Error(`Unsupported LLM provider: ${provider.name}`)
+    }
+  }
+
+  private async callOmniRoute(messages: LLMMessage[]): Promise<string> {
+    const baseUrl = this.provider.baseUrl?.replace(/\/$/, '') || 'http://localhost:20128/v1'
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (this.provider.apiKey) {
+      headers['Authorization'] = `Bearer ${this.provider.apiKey}`
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: this.model,
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content
+          }))
+        })
+      })
+
+      if (!response.ok) {
+        const errText = await response.text()
+        throw new Error(`OmniRoute error (${response.status}): ${errText}`)
+      }
+
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || 'No response from OmniRoute'
+    } catch (error: any) {
+      return `Error calling OmniRoute: ${error.message}. Is OmniRoute running at ${baseUrl}?`
     }
   }
 
@@ -52,11 +89,11 @@ export class LLMClient {
         body: JSON.stringify({
           model: this.model,
           max_tokens: 4096,
-          messages: messages.filter(m => m.role !== 'system').map(m => ({
+          messages: messages.filter((m) => m.role !== 'system').map((m) => ({
             role: m.role,
             content: m.content
           })),
-          system: messages.find(m => m.role === 'system')?.content
+          system: messages.find((m) => m.role === 'system')?.content
         })
       })
 
@@ -69,13 +106,14 @@ export class LLMClient {
 
   private async callOpenAI(messages: LLMMessage[]): Promise<string> {
     const { apiKey } = this.provider
+    const baseUrl = this.provider.baseUrl?.replace(/\/$/, '') || 'https://api.openai.com/v1'
 
     if (!apiKey) {
       throw new Error('OpenAI API key not configured')
     }
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +121,7 @@ export class LLMClient {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: messages.map(m => ({
+          messages: messages.map((m) => ({
             role: m.role,
             content: m.content
           }))
@@ -108,7 +146,7 @@ export class LLMClient {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: messages.map(m => ({
+          messages: messages.map((m) => ({
             role: m.role,
             content: m.content
           })),

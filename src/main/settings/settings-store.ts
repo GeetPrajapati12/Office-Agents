@@ -1,12 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { AppSettings } from '@shared/types/ipc'
 
 const DEFAULT_SETTINGS: AppSettings = {
   providers: {
+    omniroute: { apiKey: '', baseUrl: 'http://localhost:20128/v1' },
     ollama: { host: 'http://localhost:11434' }
   },
-  godModel: 'llama3',
+  godModel: 'auto/best-coding',
   theme: 'dark'
 }
 
@@ -57,9 +58,19 @@ export class SettingsStore {
 }
 
 export function resolveProviderConfig(settings: AppSettings): {
-  provider: { name: string; apiKey?: string; host?: string }
+  provider: { name: string; apiKey?: string; host?: string; baseUrl?: string }
   model: string
 } {
+  if (settings.providers.omniroute?.apiKey || settings.providers.omniroute?.baseUrl) {
+    return {
+      provider: {
+        name: 'omniroute',
+        apiKey: settings.providers.omniroute.apiKey || process.env.OMNIROUTE_API_KEY || '',
+        baseUrl: settings.providers.omniroute.baseUrl || 'http://localhost:20128/v1'
+      },
+      model: settings.godModel || 'auto/best-coding'
+    }
+  }
   if (settings.providers.anthropic?.apiKey) {
     return {
       provider: { name: 'anthropic', apiKey: settings.providers.anthropic.apiKey },
@@ -68,12 +79,12 @@ export function resolveProviderConfig(settings: AppSettings): {
   }
   if (settings.providers.openai?.apiKey) {
     return {
-      provider: { name: 'openai', apiKey: settings.providers.openai.apiKey },
+      provider: { name: 'openai', apiKey: settings.providers.openai.apiKey, baseUrl: settings.providers.openai.baseUrl },
       model: settings.godModel
     }
   }
   return {
     provider: { name: 'ollama', host: settings.providers.ollama?.host || 'http://localhost:11434' },
-    model: settings.godModel
+    model: settings.godModel || 'llama3'
   }
 }

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+﻿import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import { IpcApi } from '@shared/types/ipc'
 
@@ -20,6 +20,8 @@ const api: IpcApi = {
     create: (config) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_CREATE, config),
     hire: (config) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_HIRE, config),
     update: (id, updates) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_UPDATE, id, updates),
+    delete: (id) => ipcRenderer.invoke(IPC_CHANNELS.AGENT_DELETE, id),
+    deleteAllWorkers: () => ipcRenderer.invoke(IPC_CHANNELS.AGENT_DELETE_ALL),
     onStateChanged: (callback) => {
       const handler = (_: any, agent: any) => callback(agent)
       ipcRenderer.on(IPC_CHANNELS.AGENT_STATE_CHANGED, handler)

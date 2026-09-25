@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+﻿import { ipcMain, BrowserWindow } from 'electron'
 import { PtyManager } from '../terminal/pty-manager'
 import { HiveSubstrate } from '../hive/substrate'
 import { HiveDatabase } from '../db/sqlite'
@@ -155,6 +155,34 @@ export function setupIpcHandlers(
     substrate.ensureAgentDirs(id, role)
     db.upsertAgent(agent)
     return agent
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AGENT_DELETE, async (_, agentId: string) => {
+    try {
+      if (agentId === 'michael') {
+        throw new Error('Cannot delete Michael (God Agent).')
+      }
+      ptyManager.killSession(agentId)
+      substrate.deleteAgentDirs(agentId)
+      db.deleteAgent(agentId)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AGENT_DELETE_ALL, async () => {
+    try {
+      const agents = db.getAgents().filter(a => !a.isGod)
+      for (const a of agents) {
+        ptyManager.killSession(a.id)
+      }
+      substrate.deleteAllWorkerDirs()
+      const deletedIds = db.deleteAllWorkers()
+      return { success: true, deletedCount: deletedIds.length }
+    } catch (error: any) {
+      return { success: false, deletedCount: 0, error: error.message }
+    }
   })
 
   // Hive handlers

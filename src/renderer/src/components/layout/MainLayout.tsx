@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { OfficeCanvas } from '../office/OfficeCanvas'
 import { XTermWrapper } from '../terminal/XTermWrapper'
 import { SettingsModal } from '../settings/SettingsModal'
 import { CommandCenter } from '../command-center/CommandCenter'
 import { AgentCard } from '../agent/AgentCard'
 import { HireWorkerDialog } from '../agents/HireWorkerDialog'
+import { ApprovalDialog } from '../approval/ApprovalDialog'
 import { Agent } from '@shared/types/agent'
+import { ApprovalRequest } from '@shared/types/ipc'
 
 interface MainLayoutProps {
   children?: React.ReactNode
@@ -30,7 +32,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [agents, setAgents] = useState<Agent[]>([MICHAEL_AGENT])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [hireOpen, setHireOpen] = useState(false)
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null)
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>('command')
+
+  const refreshAgents = () => {
+    window.api.agent.list().then((agentList) => {
+      const workers = agentList.filter((a) => a.id !== 'michael')
+      setAgents([MICHAEL_AGENT, ...workers])
+    })
+  }
 
   useEffect(() => {
     let mounted = true
@@ -39,10 +49,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       const workers = agentList.filter((a) => a.id !== 'michael')
       setAgents([MICHAEL_AGENT, ...workers])
     })
-    const unsubscribe = window.api.agent.onStateChanged((updated) => {
+    const unsubscribeAgent = window.api.agent.onStateChanged((updated) => {
       setAgents((current) => current.map((agent) => agent.id === updated.id ? { ...agent, ...updated } : agent))
     })
-    return () => { mounted = false; unsubscribe() }
+    const unsubscribeApproval = window.api.god.onApprovalPending((approval) => {
+      setPendingApproval(approval)
+    })
+    return () => {
+      mounted = false
+      unsubscribeAgent()
+      unsubscribeApproval()
+    }
   }, [])
 
   const focusAgent = (agentId: string) => {
@@ -54,6 +71,33 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setAgents((current) => [...current.filter((item) => item.id !== agent.id), agent])
     setActiveAgent(agent.id)
     setRightPanelMode('ide')
+  }
+
+  const handleDeleteAgent = async (agentId: string) => {
+    const res = await window.api.agent.delete(agentId)
+    if (res.success) {
+      setAgents((current) => current.filter((a) => a.id !== agentId))
+      if (activeAgent === agentId) {
+        setActiveAgent('michael')
+        setRightPanelMode('command')
+      }
+    }
+  }
+
+  const handleWorkersDeleted = () => {
+    refreshAgents()
+    if (activeAgent !== 'michael') {
+      setActiveAgent('michael')
+      setRightPanelMode('command')
+    }
+  }
+
+  const handleApprovalResponse = async (requestId: string, approved: boolean) => {
+    try {
+      await window.api.god.respondToApproval(requestId, approved)
+    } finally {
+      setPendingApproval(null)
+    }
   }
 
   return (
@@ -195,6 +239,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               if (agent.id !== 'michael') setRightPanelMode('ide')
               else setRightPanelMode('command')
             }}
+            onDelete={!agent.isGod ? () => handleDeleteAgent(agent.id) : undefined}
             onTalk={
               agent.isGod
                 ? () => {
@@ -207,8 +252,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         ))}
       </div>
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onWorkersDeleted={handleWorkersDeleted}
+      />
       <HireWorkerDialog isOpen={hireOpen} onClose={() => setHireOpen(false)} onHired={handleHired} />
+      <ApprovalDialog request={pendingApproval} onRespond={handleApprovalResponse} />
     </div>
   )
 }

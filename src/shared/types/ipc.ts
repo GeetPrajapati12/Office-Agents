@@ -1,4 +1,4 @@
-import { Agent } from './agent'
+﻿import { Agent } from './agent'
 import { TerminalData, TerminalDimensions, TerminalCreateOptions, HireWorkerOptions } from './terminal'
 import { FipaMessage, HiveRegistry, TaskDefinition } from './hive'
 import { ActionLogEntry } from './god'
@@ -19,6 +19,8 @@ export interface IpcApi {
     create: (config: any) => Promise<Agent>
     hire: (config: HireWorkerOptions) => Promise<Agent>
     update: (id: string, updates: Partial<Agent>) => Promise<void>
+    delete: (id: string) => Promise<{ success: boolean; error?: string }>
+    deleteAllWorkers: () => Promise<{ success: boolean; deletedCount: number; error?: string }>
     onStateChanged: (callback: (agent: Agent) => void) => () => void
   }
 
@@ -64,8 +66,9 @@ export interface ApprovalRequest {
 
 export interface AppSettings {
   providers: {
+    omniroute?: { apiKey: string; baseUrl?: string }
     anthropic?: { apiKey: string }
-    openai?: { apiKey: string }
+    openai?: { apiKey: string; baseUrl?: string }
     ollama?: { host: string }
   }
   godModel: string

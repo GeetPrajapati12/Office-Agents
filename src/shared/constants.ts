@@ -1,4 +1,4 @@
-export const APP_NAME = 'Office AI Agents'
+﻿export const APP_NAME = 'Office AI Agents'
 export const APP_ID = 'com.officeaiagents.app'
 
 // Tile and grid constants
@@ -52,6 +52,8 @@ export const IPC_CHANNELS = {
   AGENT_CREATE: 'agent:create',
   AGENT_HIRE: 'agent:hire',
   AGENT_UPDATE: 'agent:update',
+  AGENT_DELETE: 'agent:delete',
+  AGENT_DELETE_ALL: 'agent:delete-all',
   AGENT_STATE_CHANGED: 'agent:state-changed',
 
   // Hive
