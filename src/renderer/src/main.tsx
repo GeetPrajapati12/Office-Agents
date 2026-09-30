@@ -1,12 +1,30 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './styles/global.css'
-import './styles/pixel-borders.css'
-import '@xterm/xterm/css/xterm.css'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
+import brandLogo from '@brand/logo.png?url';
+import './design/global.css';
+import './i18n';
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
+const favicon = document.createElement('link');
+favicon.rel = 'icon';
+favicon.type = 'image/png';
+favicon.href = brandLogo;
+document.head.appendChild(favicon);
+
+const splashMark = document.querySelector('#cth-splash .mk');
+if (splashMark) {
+  const img = document.createElement('img');
+  img.src = brandLogo;
+  img.alt = 'Office Agents';
+  img.style.cssText = 'height:56px;width:auto;display:block';
+  splashMark.replaceWith(img);
+}
+
+const root = document.getElementById('root');
+if (!root) throw new Error('No root element');
+
+createRoot(root).render(
+  <StrictMode>
     <App />
-  </React.StrictMode>
-)
+  </StrictMode>
+);

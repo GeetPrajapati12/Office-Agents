@@ -1,7 +1,9 @@
-import { IpcApi } from '@shared/types/ipc'
+import type { CthApi } from './index';
 
 declare global {
   interface Window {
-    api: IpcApi
+    cth: CthApi;
   }
 }
+
+export {};
